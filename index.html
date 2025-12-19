@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-  <title>Tela – Simil Prezi (pulita) con curve, delete, immagini e video</title>
+  <title>Tela – Simil Prezi (pulita) drag + resize + curve + video</title>
   <style>
     :root{
       --bg:#ffffff;
@@ -52,46 +52,85 @@
 
     .node{
       position:absolute;
-      min-width:210px; max-width:460px;
       background:#fff;
       border:1px solid var(--border);
       border-radius:16px;
-      padding:12px 14px;
       box-shadow: var(--shadow);
-      cursor:grab;
       user-select:none;
+      touch-action:none; /* drag/resize pulito */
+      overflow:hidden;
     }
-    .node:active{ cursor:grabbing; }
     .node.selected{
       border-color: rgba(31,111,255,.8);
       box-shadow: 0 0 0 3px rgba(31,111,255,.12), var(--shadow);
     }
-    .node h3{ margin:0 0 6px 0; font-size:14px; letter-spacing:.2px; }
-    .node p{ margin:0; font-size:13px; color:var(--muted); line-height:1.3; }
 
-    .node .tag{
-      display:inline-block; margin-top:10px;
-      font-size:11px; color:#0b2d7a;
+    /* Barra titolo = maniglia drag comoda */
+    .node .bar{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px;
+      padding:10px 12px 8px 12px;
+      cursor:grab;
+      border-bottom:1px solid rgba(0,0,0,.08);
+      background:linear-gradient(#fff, #fcfcfc);
+    }
+    .node .bar:active{ cursor:grabbing; }
+    .node .bar h3{ margin:0; font-size:14px; letter-spacing:.2px; }
+    .node .pill{
+      font-size:11px;
+      color:#0b2d7a;
       background:rgba(31,111,255,.10);
       border:1px solid rgba(31,111,255,.22);
       padding:3px 8px; border-radius:999px;
+      white-space:nowrap;
     }
 
-    /* image/video nodes */
-    .node.media{ padding:10px; min-width:240px; }
+    .node .content{
+      padding:10px 12px 12px 12px;
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.35;
+      overflow:auto;
+      max-height: 60vh;
+    }
+    .node .content .subtitle{ color:#333; font-weight:600; margin-bottom:8px; }
+    .node .content pre{
+      margin:0;
+      white-space:pre-wrap;
+      font-family:inherit;
+      color:#111;
+    }
+
+    /* media */
+    .node.media .content{ padding:10px; }
     .node.media img.thumb{
       width:100%;
+      height:auto;
       display:block;
       border-radius:12px;
       border:1px solid rgba(0,0,0,.12);
       background:#f2f2f2;
     }
     .node.media .caption{
-      margin:8px 4px 0 4px;
-      font-size:12px; color:var(--muted);
+      margin-top:8px;
+      font-size:12px;
+      color:var(--muted);
     }
 
-    /* SVG styles */
+    /* resize handle */
+    .resizer{
+      position:absolute;
+      width:14px; height:14px;
+      right:6px; bottom:6px;
+      border-radius:4px;
+      background:rgba(31,111,255,.95);
+      border:1px solid rgba(255,255,255,.9);
+      cursor:nwse-resize;
+      box-shadow:0 8px 18px rgba(31,111,255,.18);
+      touch-action:none;
+    }
+
+    /* links */
     .linkPath{
       fill:none;
       stroke:rgba(0,0,0,.70);
@@ -110,8 +149,6 @@
       stroke-width:16;
       pointer-events:stroke;
     }
-
-    /* Handle ON the curve (point on arc) */
     .handle{
       cursor:grab;
       fill: rgba(31,111,255,.95);
@@ -120,7 +157,6 @@
     }
     .handle:active{ cursor:grabbing; }
     .handle.selected{
-      r: 10;
       filter: drop-shadow(0 6px 10px rgba(31,111,255,.25));
     }
 
@@ -147,7 +183,6 @@
       background:#fff; color:#111;
       border-radius:12px; padding:6px 10px; cursor:pointer;
     }
-    #modal .body{ color:#111; font-size:14px; line-height:1.45; }
     #modal img.big{
       width:100%; height:auto;
       border-radius:14px;
@@ -183,7 +218,7 @@
     <button id="btnAddText" title="Aggiungi nodo di testo">+ Testo</button>
     <button id="btnAddImgUrl" title="Immagine da URL esterno">+ Immagine (URL)</button>
     <button id="btnAddImgUpload" title="Carica immagine locale">+ Immagine (Upload)</button>
-    <button id="btnAddVideo" title="Immagine cliccabile che apre un video">+ Video</button>
+    <button id="btnAddVideo" title="Thumbnail cliccabile che apre un video">+ Video</button>
 
     <button id="btnDeleteSelected" title="Cancella nodo o connettore selezionato">Cancella selezionato</button>
     <button id="btnClearAll" title="Cancella tutto">Cancella tutto</button>
@@ -196,7 +231,6 @@
   <div id="viewport">
     <div id="world">
       <svg id="linksSvg"></svg>
-      <!-- nodes -->
     </div>
   </div>
 
@@ -206,13 +240,12 @@
         <strong id="mTitle">Contenuto</strong>
         <button class="close" id="mClose">Chiudi</button>
       </header>
-      <div class="body" id="mBody"></div>
+      <div id="mBody"></div>
     </div>
   </div>
 
 <script>
 (() => {
-  // ---------- Elements ----------
   const viewport = document.getElementById('viewport');
   const world = document.getElementById('world');
   const linksSvg = document.getElementById('linksSvg');
@@ -224,90 +257,67 @@
   const mBody  = document.getElementById('mBody');
   const mClose = document.getElementById('mClose');
 
-  // ---------- State ----------
   // Camera
-  let cam = { x: 0, y: 0, s: 1 };
+  let cam = { x:0, y:0, s:1 };
   const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
 
-  // Data (START CLEAN)
-  const nodes = []; // {id,type,x,y,w,h,title,subtitle,body,src,caption,videoUrl}
-  const links = []; // {id, from, to, bend:{x,y}}  <-- bend point is ON the curve (midpoint)
+  // Data (start clean)
+  const nodes = []; // {id,type:'text'|'media', x,y,w,h,title,subtitle,body,src,caption,videoUrl}
+  const links = []; // {id, from, to, bend:{x,y}}  bend is ON the curve (midpoint)
 
-  // Modes
-  let mode = 'normal'; // 'normal' | 'connect'
+  let mode = 'normal'; // 'normal'|'connect'
   let pendingFrom = null;
 
-  // Selection
-  let selected = null; // {type:'node'|'link', id:string}
+  let selected = null; // {type:'node'|'link', id}
 
   // ---------- Camera helpers ----------
-  function applyCam() {
+  function applyCam(){
     world.style.transform = `translate(${cam.x}px, ${cam.y}px) scale(${cam.s})`;
-    const msg = mode === 'connect'
+    const msg = mode==='connect'
       ? 'MODALITÀ CONNETTI: clicca 2 nodi (poi trascina la maniglia sull’arco).'
-      : 'Pan: trascina sfondo · Zoom: rotella/pinch · Click: seleziona · Doppio click nodo: focus';
+      : 'Drag: trascina la barra del nodo · Resize: angolo blu · Zoom: rotella/pinch · Click: seleziona';
     info.textContent = `zoom:${cam.s.toFixed(2)} · ${msg}`;
   }
 
-  function screenToWorld(px, py) {
+  function screenToWorld(px,py){
     const rect = viewport.getBoundingClientRect();
     const sx = px - rect.left;
     const sy = py - rect.top;
-    return { x: (sx - cam.x) / cam.s, y: (sy - cam.y) / cam.s };
+    return { x:(sx - cam.x)/cam.s, y:(sy - cam.y)/cam.s };
   }
 
-  function zoomAt(px, py, factor) {
-    const before = screenToWorld(px, py);
-    cam.s = clamp(cam.s * factor, 0.2, 4);
+  function zoomAt(px,py,factor){
+    const before = screenToWorld(px,py);
+    cam.s = clamp(cam.s*factor, 0.2, 4);
     const rect = viewport.getBoundingClientRect();
     const sx = px - rect.left;
     const sy = py - rect.top;
-    cam.x = sx - before.x * cam.s;
-    cam.y = sy - before.y * cam.s;
+    cam.x = sx - before.x*cam.s;
+    cam.y = sy - before.y*cam.s;
     applyCam();
   }
 
   // ---------- Modal ----------
   function closeModal(){
-    modal.style.display = 'none';
-    // stop video/iframe by clearing content
-    mBody.innerHTML = '';
+    modal.style.display='none';
+    mBody.innerHTML=''; // stop video/iframe
   }
   mClose.addEventListener('click', closeModal);
-  modal.addEventListener('click', (e)=> { if (e.target === modal) closeModal(); });
+  modal.addEventListener('click', (e)=> { if(e.target===modal) closeModal(); });
 
   // ---------- Selection ----------
-  function setSelected(obj){
-    selected = obj; // or null
-    render(); // refresh highlight
-  }
+  function setSelected(obj){ selected = obj; render(); }
   function clearSelection(){ setSelected(null); }
 
   // ---------- Node geometry ----------
-  function nodeDims(n){
-    return { w: n.w || 280, h: n.h || (n.type === 'media' ? 220 : 130) };
-  }
   function nodeCenter(n){
-    const {w,h} = nodeDims(n);
-    return { x: n.x + w/2, y: n.y + h/2 };
+    return { x:n.x + n.w/2, y:n.y + n.h/2 };
   }
 
   // ---------- Bezier math ----------
-  // We store bend point B = point on curve at t=0.5 (midpoint on arc).
-  // For quadratic bezier: P0 = start, P2 = end, P1 = control.
-  // Condition: Curve midpoint M at t=0.5 equals bend point B.
-  // B = 0.25 P0 + 0.5 P1 + 0.25 P2  =>  P1 = 2B - 0.5(P0+P2)
-  function controlFromBend(P0, P2, B){
-    return {
-      x: 2*B.x - 0.5*(P0.x + P2.x),
-      y: 2*B.y - 0.5*(P0.y + P2.y)
-    };
-  }
-  function midpointOnQuad(P0, P1, P2){
-    return {
-      x: 0.25*P0.x + 0.5*P1.x + 0.25*P2.x,
-      y: 0.25*P0.y + 0.5*P1.y + 0.25*P2.y
-    };
+  // Bend point B is curve midpoint at t=0.5. Control P1 = 2B - 0.5(P0+P2)
+  function controlFromBend(P0,P2,B){
+    return { x: 2*B.x - 0.5*(P0.x+P2.x), y: 2*B.y - 0.5*(P0.y+P2.y) };
   }
 
   // ---------- Render ----------
@@ -317,41 +327,46 @@
   }
 
   function renderNodes(){
-    [...world.querySelectorAll('.node')].forEach(x => x.remove());
+    [...world.querySelectorAll('.node')].forEach(el=>el.remove());
 
-    nodes.forEach(n => {
-      const {w} = nodeDims(n);
+    nodes.forEach(n=>{
       const el = document.createElement('div');
-      el.className = 'node';
+      el.className = 'node' + (n.type==='media' ? ' media' : '');
       el.dataset.id = n.id;
       el.style.left = `${n.x}px`;
       el.style.top  = `${n.y}px`;
-      el.style.width = `${w}px`;
+      el.style.width = `${n.w}px`;
+      el.style.height = `${n.h}px`;
 
-      if (selected && selected.type === 'node' && selected.id === n.id) {
-        el.classList.add('selected');
-      }
+      if(selected && selected.type==='node' && selected.id===n.id) el.classList.add('selected');
 
-      if (n.type === 'text') {
-        el.innerHTML = `
-          <h3>${escapeHtml(n.title || 'Titolo')}</h3>
-          <p>${escapeHtml(n.subtitle || '')}</p>
-          <span class="tag">${mode==='connect' ? 'Seleziona' : 'Apri / Seleziona'}</span>
+      const pill = (n.type==='media' && n.videoUrl) ? 'Video' : (n.type==='media' ? 'Immagine' : 'Testo');
+
+      el.innerHTML = `
+        <div class="bar">
+          <h3>${escapeHtml(n.title || pill)}</h3>
+          <span class="pill">${pill}</span>
+        </div>
+        <div class="content"></div>
+        <div class="resizer" title="Ridimensiona"></div>
+      `;
+
+      const content = el.querySelector('.content');
+      if(n.type==='text'){
+        content.innerHTML = `
+          ${n.subtitle ? `<div class="subtitle">${escapeHtml(n.subtitle)}</div>` : ``}
+          <pre>${escapeHtml(n.body || '')}</pre>
         `;
       } else {
-        // media: image or video-with-thumb
-        el.classList.add('media');
-        el.innerHTML = `
+        content.innerHTML = `
           <img class="thumb" src="${escapeAttr(n.src || '')}" alt="">
-          <div class="caption">${escapeHtml(n.caption || '')}</div>
-          <span class="tag">${n.videoUrl ? 'Video' : 'Immagine'} · ${mode==='connect' ? 'Seleziona' : 'Apri / Seleziona'}</span>
+          ${n.caption ? `<div class="caption">${escapeHtml(n.caption)}</div>` : ``}
         `;
-        // img error fallback
-        const img = el.querySelector('img.thumb');
-        img.addEventListener('error', () => {
-          img.replaceWith(Object.assign(document.createElement('div'), {
-            style: 'padding:18px; border-radius:12px; border:1px dashed rgba(0,0,0,.25); color:var(--muted); font-size:12px;',
-            textContent: 'Immagine non caricabile. URL errato o hotlink bloccato dal sito.'
+        const img = content.querySelector('img.thumb');
+        img.addEventListener('error', ()=>{
+          img.replaceWith(Object.assign(document.createElement('div'),{
+            style:'padding:18px;border-radius:12px;border:1px dashed rgba(0,0,0,.25);color:var(--muted);font-size:12px;',
+            textContent:'Immagine non caricabile (URL errato o hotlink bloccato).'
           }));
         });
       }
@@ -361,123 +376,62 @@
     });
   }
 
-  function attachNodeInteractions(el, n){
-    // Drag node
-    let dragging = false;
-    let start = {x:0,y:0,nx:0,ny:0};
-
-    el.addEventListener('pointerdown', (e) => {
-      e.stopPropagation();
-      el.setPointerCapture(e.pointerId);
-      dragging = true;
-      start = { x:e.clientX, y:e.clientY, nx:n.x, ny:n.y };
-      // select on down (feels immediate)
-      setSelected({type:'node', id:n.id});
-    });
-
-    el.addEventListener('pointermove', (e) => {
-      if (!dragging) return;
-      const dx = (e.clientX - start.x) / cam.s;
-      const dy = (e.clientY - start.y) / cam.s;
-      n.x = start.nx + dx;
-      n.y = start.ny + dy;
-      // update view without rebuilding nodes (cheaper):
-      el.style.left = `${n.x}px`;
-      el.style.top  = `${n.y}px`;
-      renderLinks(); // keep links attached
-    });
-
-    el.addEventListener('pointerup', ()=> dragging = false);
-
-    // Click behavior:
-    el.addEventListener('click', (e)=> {
-      e.stopPropagation();
-      if (mode === 'connect') {
-        pickNodeForLink(n.id);
-        return;
-      }
-      // normal: open content (but still stays selected)
-      openNode(n);
-    });
-
-    // Double click: focus
-    el.addEventListener('dblclick', (e)=> {
-      e.stopPropagation();
-      focusNode(n);
-    });
-  }
-
   function renderLinks(){
     linksSvg.innerHTML = '';
     linksSvg.setAttribute('width','1');
     linksSvg.setAttribute('height','1');
 
-    links.forEach(link => {
+    links.forEach(link=>{
       const a = nodes.find(n=>n.id===link.from);
       const b = nodes.find(n=>n.id===link.to);
-      if (!a || !b) return;
+      if(!a || !b) return;
 
       const P0 = nodeCenter(a);
       const P2 = nodeCenter(b);
-
-      // bend point is ON the curve midpoint
-      const B = link.bend || { x:(P0.x+P2.x)/2, y:(P0.y+P2.y)/2 };
-      const P1 = controlFromBend(P0, P2, B);
+      const mid = { x:(P0.x+P2.x)/2, y:(P0.y+P2.y)/2 };
+      const B = link.bend || { x:mid.x, y:mid.y - 80 };
+      const P1 = controlFromBend(P0,P2,B);
 
       const d = `M ${P0.x} ${P0.y} Q ${P1.x} ${P1.y} ${P2.x} ${P2.y}`;
 
-      // visible path
       const path = svgEl('path');
       path.setAttribute('d', d);
-      path.setAttribute('class', 'linkPath');
-      if (selected && selected.type==='link' && selected.id===link.id) {
-        path.classList.add('selected');
-      }
+      path.setAttribute('class', 'linkPath' + (selected && selected.type==='link' && selected.id===link.id ? ' selected' : ''));
       linksSvg.appendChild(path);
 
-      // hit area path for easy selection
       const hit = svgEl('path');
       hit.setAttribute('d', d);
       hit.setAttribute('class', 'linkHit');
       linksSvg.appendChild(hit);
 
-      // handle point: exactly B (on arc)
       const handle = svgEl('circle');
       handle.setAttribute('cx', B.x);
       handle.setAttribute('cy', B.y);
       handle.setAttribute('r', 8);
-      handle.setAttribute('class', 'handle');
-      if (selected && selected.type==='link' && selected.id===link.id) {
-        handle.classList.add('selected');
-      }
+      handle.setAttribute('class', 'handle' + (selected && selected.type==='link' && selected.id===link.id ? ' selected' : ''));
       linksSvg.appendChild(handle);
 
-      // select link on click (either hit or path)
-      const selectLink = (e) => {
-        e.stopPropagation();
-        setSelected({type:'link', id:link.id});
-      };
-      hit.addEventListener('click', selectLink);
-      path.addEventListener('click', selectLink);
-      handle.addEventListener('click', selectLink);
+      const selectLink = (e)=>{ e.stopPropagation(); setSelected({type:'link', id:link.id}); };
+      hit.addEventListener('pointerdown', selectLink);
+      path.addEventListener('pointerdown', selectLink);
+      handle.addEventListener('pointerdown', (e)=>{ e.stopPropagation(); setSelected({type:'link', id:link.id}); });
 
-      // drag handle (updates bend point B directly, stays on arc by definition)
+      // Drag handle (bend point on curve)
       let dragging = false;
-      handle.addEventListener('pointerdown', (e)=> {
-        e.stopPropagation();
-        e.preventDefault();
+      handle.addEventListener('pointerdown', (e)=>{
+        e.stopPropagation(); e.preventDefault();
         handle.setPointerCapture(e.pointerId);
         dragging = true;
         setSelected({type:'link', id:link.id});
       });
-      handle.addEventListener('pointermove', (e)=> {
-        if (!dragging) return;
+      handle.addEventListener('pointermove', (e)=>{
+        if(!dragging) return;
         const p = screenToWorld(e.clientX, e.clientY);
         link.bend = { x:p.x, y:p.y };
-        // re-render links only
         renderLinks();
       });
       handle.addEventListener('pointerup', ()=> dragging = false);
+      handle.addEventListener('pointercancel', ()=> dragging = false);
     });
   }
 
@@ -485,124 +439,202 @@
     return document.createElementNS('http://www.w3.org/2000/svg', name);
   }
 
+  // ---------- Drag + Resize + Click open (robusto) ----------
+  function attachNodeInteractions(el, n){
+    const bar = el.querySelector('.bar');
+    const resizer = el.querySelector('.resizer');
+
+    // Selection on pointerdown anywhere in node
+    el.addEventListener('pointerdown', (e)=>{
+      e.stopPropagation();
+      setSelected({type:'node', id:n.id});
+    });
+
+    // DRAG from bar
+    let drag = { active:false, sx:0, sy:0, nx:0, ny:0, moved:false };
+    const DRAG_THRESHOLD = 4; // px (screen)
+
+    bar.addEventListener('pointerdown', (e)=>{
+      e.stopPropagation();
+      e.preventDefault();
+      bar.setPointerCapture(e.pointerId);
+      drag = { active:true, sx:e.clientX, sy:e.clientY, nx:n.x, ny:n.y, moved:false };
+      bar.style.cursor = 'grabbing';
+    });
+
+    bar.addEventListener('pointermove', (e)=>{
+      if(!drag.active) return;
+      const dxs = e.clientX - drag.sx;
+      const dys = e.clientY - drag.sy;
+      if(Math.abs(dxs) > DRAG_THRESHOLD || Math.abs(dys) > DRAG_THRESHOLD) drag.moved = true;
+
+      const dx = dxs / cam.s;
+      const dy = dys / cam.s;
+      n.x = drag.nx + dx;
+      n.y = drag.ny + dy;
+
+      el.style.left = `${n.x}px`;
+      el.style.top  = `${n.y}px`;
+      renderLinks();
+    });
+
+    function endDrag(){
+      drag.active = false;
+      bar.style.cursor = 'grab';
+    }
+    bar.addEventListener('pointerup', endDrag);
+    bar.addEventListener('pointercancel', endDrag);
+
+    // RESIZE from corner
+    let rz = { active:false, sx:0, sy:0, w:0, h:0 };
+    const MIN_W = 180, MIN_H = 120;
+
+    resizer.addEventListener('pointerdown', (e)=>{
+      e.stopPropagation();
+      e.preventDefault();
+      resizer.setPointerCapture(e.pointerId);
+      rz = { active:true, sx:e.clientX, sy:e.clientY, w:n.w, h:n.h };
+    });
+
+    resizer.addEventListener('pointermove', (e)=>{
+      if(!rz.active) return;
+      const dx = (e.clientX - rz.sx) / cam.s;
+      const dy = (e.clientY - rz.sy) / cam.s;
+      n.w = Math.max(MIN_W, rz.w + dx);
+      n.h = Math.max(MIN_H, rz.h + dy);
+      el.style.width = `${n.w}px`;
+      el.style.height = `${n.h}px`;
+      renderLinks();
+    });
+
+    resizer.addEventListener('pointerup', ()=> rz.active=false);
+    resizer.addEventListener('pointercancel', ()=> rz.active=false);
+
+    // OPEN on click (but only if not dragging)
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if(mode === 'connect'){ pickNodeForLink(n.id); return; }
+      // se hai trascinato appena prima, non aprire
+      if(drag.moved) return;
+      openNode(n);
+    });
+
+    // Double click: focus
+    el.addEventListener('dblclick', (e)=>{
+      e.stopPropagation();
+      focusNode(n);
+    });
+  }
+
   // ---------- Open node ----------
   function openNode(n){
     mTitle.textContent = n.title || 'Contenuto';
 
-    if (n.type === 'text') {
-      const body = (n.body || '').trim();
-      const sub  = (n.subtitle || '').trim();
+    if(n.type==='text'){
+      const sub = (n.subtitle||'').trim();
+      const body = (n.body||'').trim();
       mBody.innerHTML = `
-        ${sub ? `<div style="color:#444; margin-bottom:10px;"><strong>${escapeHtml(sub)}</strong></div>` : ''}
-        <div style="white-space:pre-wrap; color:#111;">${escapeHtml(body || '')}</div>
+        ${sub ? `<div style="color:#444;margin-bottom:10px;"><strong>${escapeHtml(sub)}</strong></div>` : ``}
+        <div style="white-space:pre-wrap;color:#111;">${escapeHtml(body)}</div>
       `;
       modal.style.display = 'grid';
       return;
     }
 
-    // media node
-    if (n.videoUrl) {
-      const embed = videoEmbedHtml(n.videoUrl);
+    if(n.videoUrl){
       mBody.innerHTML = `
-        <div class="videoWrap">${embed}</div>
-        ${n.caption ? `<div style="margin-top:10px; color:#444; font-size:13px;">${escapeHtml(n.caption)}</div>` : ''}
+        <div class="videoWrap">${videoEmbedHtml(n.videoUrl)}</div>
+        ${n.caption ? `<div style="margin-top:10px;color:#444;font-size:13px;">${escapeHtml(n.caption)}</div>` : ``}
       `;
-      modal.style.display = 'grid';
+      modal.style.display='grid';
       return;
     }
 
-    // image
     mBody.innerHTML = `
       <img class="big" src="${escapeAttr(n.src||'')}" alt="">
-      ${n.caption ? `<div style="margin-top:10px; color:#444; font-size:13px;">${escapeHtml(n.caption)}</div>` : ''}
+      ${n.caption ? `<div style="margin-top:10px;color:#444;font-size:13px;">${escapeHtml(n.caption)}</div>` : ``}
     `;
-    modal.style.display = 'grid';
+    modal.style.display='grid';
   }
 
   function videoEmbedHtml(url){
     const u = String(url).trim();
-
-    // YouTube: watch?v=... or youtu.be/...
     const yt = parseYouTube(u);
-    if (yt) {
+    if(yt){
       const src = `https://www.youtube.com/embed/${yt}?autoplay=1`;
       return `<iframe src="${escapeAttr(src)}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
     }
-
-    // Direct video file
-    if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(u)) {
+    if(/\.(mp4|webm|ogg)(\?.*)?$/i.test(u)){
       return `<video src="${escapeAttr(u)}" controls playsinline></video>`;
     }
-
-    // Generic iframe (works only if the site allows embedding)
     return `<iframe src="${escapeAttr(u)}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
   }
 
   function parseYouTube(url){
     try{
       const u = new URL(url);
-      if (u.hostname.includes('youtu.be')) {
+      if(u.hostname.includes('youtu.be')){
         const id = u.pathname.replace('/','').trim();
         return id || null;
       }
-      if (u.hostname.includes('youtube.com')) {
+      if(u.hostname.includes('youtube.com')){
         const v = u.searchParams.get('v');
-        if (v) return v;
-        // already /embed/ID
+        if(v) return v;
         const m = u.pathname.match(/\/embed\/([a-zA-Z0-9_-]+)/);
-        if (m) return m[1];
+        if(m) return m[1];
       }
     }catch(_){}
     return null;
   }
 
-  // ---------- Focus ----------
+  // ---------- Focus / Home ----------
   function focusNode(n){
-    const targetZoom = 1.7;
-    cam.s = targetZoom;
+    cam.s = 1.7;
     const rect = viewport.getBoundingClientRect();
-    const cx = rect.width / 2;
-    const cy = rect.height / 2;
+    const cx = rect.width/2, cy = rect.height/2;
     const c = nodeCenter(n);
-    cam.x = cx - c.x * cam.s;
-    cam.y = cy - c.y * cam.s;
+    cam.x = cx - c.x*cam.s;
+    cam.y = cy - c.y*cam.s;
     applyCam();
   }
-  function home(){ cam = {x:0,y:0,s:1}; applyCam(); }
+  function home(){ cam={x:0,y:0,s:1}; applyCam(); }
 
-  // ---------- Pan / Zoom ----------
-  let panning = false;
-  let panStart = {x:0,y:0,cx:0,cy:0};
+  // ---------- Pan / Zoom background ----------
+  let panning=false;
+  let panStart={sx:0,sy:0,cx:0,cy:0};
 
-  viewport.addEventListener('pointerdown', (e)=> {
-    // click on empty background -> clear selection
-    if (e.target === viewport) clearSelection();
+  viewport.addEventListener('pointerdown', (e)=>{
+    // click su sfondo: deseleziona
+    if(e.target === viewport) clearSelection();
+
     panning = true;
     viewport.setPointerCapture(e.pointerId);
-    panStart = { x:e.clientX, y:e.clientY, cx:cam.x, cy:cam.y };
+    panStart = { sx:e.clientX, sy:e.clientY, cx:cam.x, cy:cam.y };
   });
-  viewport.addEventListener('pointermove', (e)=> {
-    if (!panning) return;
-    cam.x = panStart.cx + (e.clientX - panStart.x);
-    cam.y = panStart.cy + (e.clientY - panStart.y);
+
+  viewport.addEventListener('pointermove', (e)=>{
+    if(!panning) return;
+    cam.x = panStart.cx + (e.clientX - panStart.sx);
+    cam.y = panStart.cy + (e.clientY - panStart.sy);
     applyCam();
   });
-  viewport.addEventListener('pointerup', ()=> panning = false);
 
-  viewport.addEventListener('wheel', (e)=> {
+  viewport.addEventListener('pointerup', ()=> panning=false);
+  viewport.addEventListener('pointercancel', ()=> panning=false);
+
+  viewport.addEventListener('wheel', (e)=>{
     e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.08 : 0.92;
-    zoomAt(e.clientX, e.clientY, factor);
-  }, { passive:false });
+    zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.08 : 0.92);
+  }, {passive:false});
 
-  // Minimal pinch zoom
+  // Pinch zoom minimal
   const lastPointers = new Map();
   let pinch = { active:false, id1:null, id2:null, d0:0, mid:{x:0,y:0} };
 
-  viewport.addEventListener('pointerdown', (e)=> {
+  viewport.addEventListener('pointerdown', (e)=>{
     lastPointers.set(e.pointerId, {x:e.clientX,y:e.clientY});
-    if (!pinch.id1) pinch.id1 = e.pointerId;
-    else if (!pinch.id2) {
+    if(!pinch.id1) pinch.id1 = e.pointerId;
+    else if(!pinch.id2){
       pinch.id2 = e.pointerId;
       pinch.active = true;
       const p1 = lastPointers.get(pinch.id1);
@@ -611,23 +643,26 @@
       pinch.mid = { x:(p1.x+p2.x)/2, y:(p1.y+p2.y)/2 };
     }
   });
-  viewport.addEventListener('pointermove', (e)=> {
+
+  viewport.addEventListener('pointermove', (e)=>{
     lastPointers.set(e.pointerId, {x:e.clientX,y:e.clientY});
-    if (!pinch.active) return;
-    if (!lastPointers.has(pinch.id1) || !lastPointers.has(pinch.id2)) return;
+    if(!pinch.active) return;
+    if(!lastPointers.has(pinch.id1) || !lastPointers.has(pinch.id2)) return;
     const p1 = lastPointers.get(pinch.id1);
     const p2 = lastPointers.get(pinch.id2);
     const d = dist(p1,p2);
-    const factor = clamp(d / pinch.d0, 0.85, 1.15);
+    const factor = clamp(d/pinch.d0, 0.85, 1.15);
     zoomAt(pinch.mid.x, pinch.mid.y, factor);
     pinch.d0 = d;
   });
-  viewport.addEventListener('pointerup', (e)=> {
+
+  viewport.addEventListener('pointerup', (e)=>{
     lastPointers.delete(e.pointerId);
-    if (e.pointerId === pinch.id1) pinch.id1 = null;
-    if (e.pointerId === pinch.id2) pinch.id2 = null;
-    if (!pinch.id1 || !pinch.id2) pinch.active = false;
+    if(e.pointerId===pinch.id1) pinch.id1=null;
+    if(e.pointerId===pinch.id2) pinch.id2=null;
+    if(!pinch.id1 || !pinch.id2) pinch.active=false;
   });
+
   function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
 
   // ---------- Connect mode ----------
@@ -635,38 +670,34 @@
     mode = m;
     pendingFrom = null;
     document.getElementById('btnConnect').classList.toggle('active', mode==='connect');
-    render();
     applyCam();
+    render();
   }
 
   function pickNodeForLink(nodeId){
-    if (!pendingFrom) {
+    if(!pendingFrom){
       pendingFrom = nodeId;
       info.textContent = `MODALITÀ CONNETTI: scelto ${nodeId}. Ora clicca il secondo nodo.`;
       return;
     }
-    if (pendingFrom === nodeId) return;
+    if(pendingFrom === nodeId) return;
 
     const a = nodes.find(n=>n.id===pendingFrom);
     const b = nodes.find(n=>n.id===nodeId);
-    if (!a || !b) { pendingFrom = null; return; }
+    if(!a || !b){ pendingFrom=null; return; }
 
     const P0 = nodeCenter(a);
     const P2 = nodeCenter(b);
     const mid = { x:(P0.x+P2.x)/2, y:(P0.y+P2.y)/2 };
 
-    // Initial bend point ON arc: start with a mild upward offset
-    const bend = { x: mid.x, y: mid.y - 90 };
-
     const link = {
-      id: 'l' + Math.random().toString(16).slice(2),
+      id:'l'+Math.random().toString(16).slice(2),
       from: pendingFrom,
       to: nodeId,
-      bend
+      bend: { x: mid.x, y: mid.y - 80 } // handle ON the arc midpoint
     };
     links.push(link);
     pendingFrom = null;
-
     setSelected({type:'link', id:link.id});
     renderLinks();
     info.textContent = `Connettore creato. Trascina la maniglia sull’arco per piegarlo.`;
@@ -674,19 +705,19 @@
 
   // ---------- Add nodes ----------
   function addTextNode(){
-    const title = prompt('Titolo del nodo:','') ?? '';
-    if (title === null) return;
+    const title = prompt('Titolo del nodo:', '') ?? '';
+    if(title === null) return;
     const subtitle = prompt('Sottotitolo (facoltativo):','') ?? '';
-    if (subtitle === null) return;
+    if(subtitle === null) return;
     const body = prompt('Testo (puoi incollare anche lungo):','') ?? '';
-    if (body === null) return;
+    if(body === null) return;
 
     const n = {
-      id: 'n' + Math.random().toString(16).slice(2),
-      type: 'text',
-      x: -140, y: -80,
-      w: 300, h: 130,
-      title: title.trim() || 'Nodo testo',
+      id:'n'+Math.random().toString(16).slice(2),
+      type:'text',
+      x:-160, y:-110,
+      w:320, h:220,
+      title: title.trim() || 'Testo',
       subtitle: subtitle.trim(),
       body: body
     };
@@ -696,16 +727,16 @@
   }
 
   function addImageUrlNode(){
-    const url = prompt("URL immagine (https://...):","");
-    if (!url) return;
-    const caption = prompt("Didascalia (facoltativa):","") || '';
-    const title = prompt("Titolo (facoltativo):","Immagine") || 'Immagine';
+    const url = prompt('URL immagine (https://...):','');
+    if(!url) return;
+    const caption = prompt('Didascalia (facoltativa):','') || '';
+    const title = prompt('Titolo (facoltativo):','Immagine') || 'Immagine';
 
     const n = {
-      id: 'n' + Math.random().toString(16).slice(2),
-      type: 'media',
-      x: -160, y: -100,
-      w: 360, h: 240,
+      id:'n'+Math.random().toString(16).slice(2),
+      type:'media',
+      x:-160, y:-110,
+      w:360, h:300,
       title: title.trim(),
       caption: caption.trim(),
       src: url.trim(),
@@ -720,14 +751,13 @@
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result;
-      const caption = prompt("Didascalia (facoltativa):","") || '';
-      const title = prompt("Titolo (facoltativo):", file.name || "Immagine") || (file.name || "Immagine");
-
+      const caption = prompt('Didascalia (facoltativa):','') || '';
+      const title = prompt('Titolo (facoltativo):', file.name || 'Immagine') || (file.name || 'Immagine');
       const n = {
-        id: 'n' + Math.random().toString(16).slice(2),
-        type: 'media',
-        x: -160, y: -100,
-        w: 360, h: 240,
+        id:'n'+Math.random().toString(16).slice(2),
+        type:'media',
+        x:-160, y:-110,
+        w:360, h:300,
         title: title.trim(),
         caption: caption.trim(),
         src: dataUrl,
@@ -741,19 +771,19 @@
   }
 
   function addVideoNode(){
-    const thumb = prompt("Immagine/thumbnail (URL immagine) — es. copertina:","");
-    if (!thumb) return;
-    const videoUrl = prompt("URL video (YouTube link o file .mp4/.webm):","");
-    if (!videoUrl) return;
+    const thumb = prompt('Thumbnail (URL immagine):','');
+    if(!thumb) return;
+    const videoUrl = prompt('URL video (YouTube o .mp4/.webm):','');
+    if(!videoUrl) return;
 
-    const caption = prompt("Didascalia (facoltativa):","") || '';
-    const title = prompt("Titolo (facoltativo):","Video") || 'Video';
+    const caption = prompt('Didascalia (facoltativa):','') || '';
+    const title = prompt('Titolo (facoltativo):','Video') || 'Video';
 
     const n = {
-      id: 'n' + Math.random().toString(16).slice(2),
-      type: 'media',
-      x: -160, y: -100,
-      w: 360, h: 240,
+      id:'n'+Math.random().toString(16).slice(2),
+      type:'media',
+      x:-160, y:-110,
+      w:360, h:300,
       title: title.trim(),
       caption: caption.trim(),
       src: thumb.trim(),
@@ -766,68 +796,60 @@
 
   // ---------- Delete ----------
   function deleteSelected(){
-    if (!selected) return;
+    if(!selected) return;
 
-    if (selected.type === 'node') {
+    if(selected.type==='node'){
       const idx = nodes.findIndex(n=>n.id===selected.id);
-      if (idx === -1) return;
-
+      if(idx === -1) return;
       const nodeId = nodes[idx].id;
       nodes.splice(idx,1);
-
-      // remove links connected to that node
-      for (let i = links.length-1; i>=0; i--){
-        if (links[i].from === nodeId || links[i].to === nodeId) links.splice(i,1);
+      for(let i=links.length-1;i>=0;i--){
+        if(links[i].from===nodeId || links[i].to===nodeId) links.splice(i,1);
       }
-
       clearSelection();
       render();
       return;
     }
 
-    if (selected.type === 'link') {
+    if(selected.type==='link'){
       const idx = links.findIndex(l=>l.id===selected.id);
-      if (idx === -1) return;
+      if(idx === -1) return;
       links.splice(idx,1);
       clearSelection();
       renderLinks();
-      return;
     }
   }
 
   function clearAll(){
-    if (!confirm('Cancello TUTTO (nodi e connettori). Confermi?')) return;
-    nodes.length = 0;
-    links.length = 0;
-    pendingFrom = null;
+    if(!confirm('Cancello TUTTO (nodi e connettori). Confermi?')) return;
+    nodes.length=0;
+    links.length=0;
+    pendingFrom=null;
     clearSelection();
     render();
-    info.textContent = 'Tavola bianca. Aggiungi tu i contenuti.';
+    info.textContent='Tavola bianca. Aggiungi tu i contenuti.';
   }
 
   // ---------- HUD wiring ----------
   document.getElementById('btnHome').onclick = home;
-
-  document.getElementById('btnConnect').onclick = () => {
-    setMode(mode === 'connect' ? 'normal' : 'connect');
-  };
+  document.getElementById('btnConnect').onclick = ()=> setMode(mode==='connect' ? 'normal' : 'connect');
 
   document.getElementById('btnAddText').onclick = addTextNode;
   document.getElementById('btnAddImgUrl').onclick = addImageUrlNode;
-  document.getElementById('btnAddImgUpload').onclick = () => fileInput.click();
+  document.getElementById('btnAddImgUpload').onclick = ()=> fileInput.click();
   document.getElementById('btnAddVideo').onclick = addVideoNode;
 
   document.getElementById('btnDeleteSelected').onclick = deleteSelected;
   document.getElementById('btnClearAll').onclick = clearAll;
 
-  fileInput.addEventListener('change', (e)=> {
+  fileInput.addEventListener('change', (e)=>{
     const file = e.target.files && e.target.files[0];
-    if (!file) return;
+    if(!file) return;
     addImageUploadNode(file);
-    fileInput.value = '';
+    fileInput.value='';
   });
 
-  // ---------- Utilities ----------
+  // ---------- Utils ----------
   function escapeHtml(str){
     return String(str).replace(/[&<>"']/g, s => ({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -837,8 +859,8 @@
     return String(str).replace(/"/g, '&quot;');
   }
 
-  // ---------- Init ----------
-  render();     // empty, clean
+  // Init
+  render();
   home();
   info.textContent = 'Tavola bianca. Aggiungi tu i contenuti.';
 })();
