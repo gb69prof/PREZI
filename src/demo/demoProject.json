@@ -1,0 +1,337 @@
+{
+  "version": 1,
+  "name": "Demo ZOOMDECK",
+  "createdAt": 0,
+  "updatedAt": 0,
+  "camera": {
+    "x": 150,
+    "y": 80,
+    "scale": 0.9,
+    "rotation": 0
+  },
+  "frames": [
+    {
+      "id": "f1",
+      "x": -200,
+      "y": -120,
+      "width": 520,
+      "height": 360,
+      "rotation": 0,
+      "title": "1. Apertura",
+      "stroke": "#111",
+      "strokeWidth": 2,
+      "fill": "rgba(43,89,255,0.06)",
+      "z": 1,
+      "parentFrameId": null
+    },
+    {
+      "id": "f2",
+      "x": 420,
+      "y": -120,
+      "width": 520,
+      "height": 360,
+      "rotation": 0,
+      "title": "2. Idee",
+      "stroke": "#111",
+      "strokeWidth": 2,
+      "fill": "rgba(0,0,0,0.04)",
+      "z": 2,
+      "parentFrameId": null
+    },
+    {
+      "id": "f3",
+      "x": -200,
+      "y": 320,
+      "width": 520,
+      "height": 360,
+      "rotation": 0,
+      "title": "3. Dettaglio",
+      "stroke": "#111",
+      "strokeWidth": 2,
+      "fill": "rgba(255,180,0,0.10)",
+      "z": 3,
+      "parentFrameId": null
+    },
+    {
+      "id": "f4",
+      "x": 420,
+      "y": 320,
+      "width": 520,
+      "height": 360,
+      "rotation": 0,
+      "title": "4. Immagini",
+      "stroke": "#111",
+      "strokeWidth": 2,
+      "fill": "rgba(0,180,120,0.08)",
+      "z": 4,
+      "parentFrameId": null
+    },
+    {
+      "id": "f5",
+      "x": 900,
+      "y": 520,
+      "width": 360,
+      "height": 260,
+      "rotation": 0,
+      "title": "4.1 Frame annidato",
+      "stroke": "#111",
+      "strokeWidth": 2,
+      "fill": "rgba(43,89,255,0.08)",
+      "z": 5,
+      "parentFrameId": "f4"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "n1",
+      "type": "text",
+      "x": -160,
+      "y": -80,
+      "width": 440,
+      "height": 70,
+      "rotation": 0,
+      "z": 10,
+      "text": "ZOOMDECK \u2014 Demo",
+      "fontFamily": "Georgia",
+      "fontSize": 42,
+      "fontStyle": "bold",
+      "fill": "#111",
+      "align": "center",
+      "parentFrameId": "f1"
+    },
+    {
+      "id": "n2",
+      "type": "wordart",
+      "x": -120,
+      "y": 10,
+      "width": 360,
+      "height": 70,
+      "rotation": 0,
+      "z": 11,
+      "text": "Zoom & Pan",
+      "fontFamily": "Impact",
+      "fontSize": 54,
+      "fontStyle": "normal",
+      "fill": "#fff",
+      "stroke": "#111",
+      "strokeWidth": 4,
+      "shadowColor": "rgba(0,0,0,0.25)",
+      "shadowBlur": 10,
+      "shadowOffsetX": 2,
+      "shadowOffsetY": 4,
+      "align": "center",
+      "curvature": 0.22,
+      "parentFrameId": "f1"
+    },
+    {
+      "id": "n3",
+      "type": "rect",
+      "x": 460,
+      "y": -60,
+      "width": 440,
+      "height": 120,
+      "rotation": 0,
+      "z": 12,
+      "fill": "#eaeaea",
+      "stroke": "#111",
+      "strokeWidth": 2,
+      "cornerRadius": 16,
+      "parentFrameId": "f2"
+    },
+    {
+      "id": "n4",
+      "type": "text",
+      "x": 480,
+      "y": -40,
+      "width": 400,
+      "height": 90,
+      "rotation": 0,
+      "z": 13,
+      "text": "Trascina gli oggetti dall\u2019interno.\\nResize con maniglie.",
+      "fontFamily": "Verdana",
+      "fontSize": 22,
+      "fontStyle": "normal",
+      "fill": "#111",
+      "align": "left",
+      "parentFrameId": "f2"
+    },
+    {
+      "id": "n5",
+      "type": "line",
+      "x": 560,
+      "y": 80,
+      "width": 0,
+      "height": 0,
+      "rotation": 0,
+      "z": 14,
+      "points": [
+        0,
+        0,
+        260,
+        120
+      ],
+      "stroke": "#111",
+      "strokeWidth": 3,
+      "parentFrameId": "f2"
+    },
+    {
+      "id": "n6",
+      "type": "arrow",
+      "x": 560,
+      "y": 220,
+      "width": 0,
+      "height": 0,
+      "rotation": 0,
+      "z": 15,
+      "points": [
+        0,
+        0,
+        260,
+        -120
+      ],
+      "stroke": "#111",
+      "strokeWidth": 3,
+      "parentFrameId": "f2"
+    },
+    {
+      "id": "n7",
+      "type": "curve",
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "rotation": 0,
+      "z": 16,
+      "p0": {
+        "x": -140,
+        "y": 420
+      },
+      "c": {
+        "x": 40,
+        "y": 260
+      },
+      "p1": {
+        "x": 240,
+        "y": 520
+      },
+      "stroke": "#111",
+      "strokeWidth": 3,
+      "parentFrameId": "f3"
+    },
+    {
+      "id": "n8",
+      "type": "text",
+      "x": -170,
+      "y": 560,
+      "width": 480,
+      "height": 70,
+      "rotation": 0,
+      "z": 17,
+      "text": "Curva: maniglia SULL\u2019ARCO.",
+      "fontFamily": "Georgia",
+      "fontSize": 28,
+      "fontStyle": "italic",
+      "fill": "#111",
+      "align": "center",
+      "parentFrameId": "f3"
+    },
+    {
+      "id": "n9",
+      "type": "image",
+      "x": 460,
+      "y": 360,
+      "width": 380,
+      "height": 250,
+      "rotation": 0,
+      "z": 18,
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NDAiIGhlaWdodD0iNDIwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjJmMmYyIi8+PGNpcmNsZSBjeD0iMzIwIiBjeT0iMjEwIiByPSIxMjAiIGZpbGw9IiMyYjU5ZmYiIG9wYWNpdHk9IjAuMjUiLz48dGV4dCB4PSI1MCUiIHk9IjUyJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjQ4IiBmaWxsPSIjMTExIj5JTUcgMTwvdGV4dD48L3N2Zz4=",
+      "parentFrameId": "f4"
+    },
+    {
+      "id": "n10",
+      "type": "image",
+      "x": 860,
+      "y": 360,
+      "width": 380,
+      "height": 250,
+      "rotation": 0,
+      "z": 19,
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NDAiIGhlaWdodD0iNDIwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZmZmNWU2Ii8+PHJlY3QgeD0iMTIwIiB5PSI4MCIgd2lkdGg9IjQwMCIgaGVpZ2h0PSIyNjAiIHJ4PSIyNiIgZmlsbD0iIzExMSIgb3BhY2l0eT0iMC4wOCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTIlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iR2VvcmdpYSIgZm9udC1zaXplPSI0OCIgZmlsbD0iIzExMSI+SU1HIDI8L3RleHQ+PC9zdmc+",
+      "parentFrameId": "f4"
+    },
+    {
+      "id": "n11",
+      "type": "rect",
+      "x": 940,
+      "y": 560,
+      "width": 300,
+      "height": 180,
+      "rotation": 0,
+      "z": 20,
+      "fill": "#ffffff",
+      "stroke": "#111",
+      "strokeWidth": 2,
+      "cornerRadius": 18,
+      "parentFrameId": "f5"
+    },
+    {
+      "id": "n12",
+      "type": "text",
+      "x": 960,
+      "y": 590,
+      "width": 260,
+      "height": 130,
+      "rotation": 0,
+      "z": 21,
+      "text": "Frame annidato\\n(con oggetti dentro).",
+      "fontFamily": "Arial",
+      "fontSize": 22,
+      "fontStyle": "bold",
+      "fill": "#111",
+      "align": "center",
+      "parentFrameId": "f5"
+    }
+  ],
+  "path": [
+    {
+      "id": "s1",
+      "kind": "frame",
+      "refId": "f1"
+    },
+    {
+      "id": "s2",
+      "kind": "frame",
+      "refId": "f2"
+    },
+    {
+      "id": "s3",
+      "kind": "node",
+      "refId": "n7"
+    },
+    {
+      "id": "s4",
+      "kind": "frame",
+      "refId": "f3"
+    },
+    {
+      "id": "s5",
+      "kind": "frame",
+      "refId": "f4"
+    },
+    {
+      "id": "s6",
+      "kind": "frame",
+      "refId": "f5"
+    },
+    {
+      "id": "s7",
+      "kind": "node",
+      "refId": "n9"
+    },
+    {
+      "id": "s8",
+      "kind": "node",
+      "refId": "n12"
+    }
+  ]
+}
